@@ -1,0 +1,139 @@
+						192.168.90.226 
+1）oracle的实例名：orcl
+2）oracle的管理员用户名和密码：system/oracle
+3）在控制台以管理员权限登录建立连接:
+	sqlplus system/oracle@192.168.90.226:1521/orcl
+	conn /as sysdba;
+4）创建表空间和用户
+   --表空间是数据库的逻辑划分，一个表空间只能属于一个数据库。所有的数据库对象都存放在指定的表空间中。但主要存放的是表，所以称作表空间。
+   Oracle临时表空间主要用来做查询和存放一些缓冲区数据。临时表空间，可自动释放；
+   而表空间中存储表数据、函数、过程、序列等。是随数据库永久存在的。
+	/*分为四步 */
+	/*第1步：创建临时表空间  */
+	create temporary tablespace linshi_temp  
+	tempfile 'D:\database\dbdata\linshi_temp.dbf' 
+	size 50m  
+	autoextend on  
+	next 50m maxsize 5120m   
+	extent management local;  
+	 
+	/*第2步：创建数据表空间  */
+	create tablespace linshi_data  
+	logging  
+	datafile 'D:\database\dbdata\linshi_data.dbf' 
+	size 50m  
+	autoextend on  
+	next 50m maxsize 10480m  
+	extent management local;  
+	 
+	/*第3步：创建用户并指定表空间  */
+	create user linshi identified by linshi
+	default tablespace linshi_data  
+	temporary tablespace linshi_temp;  
+
+
+	 
+	/*第4步：给用户授予权限  */
+	grant connect,resource,dba to linshi;
+
+5）imp导入和exp导出
+【完全模式】exp 数据库用户名/数据库用户密码@实例名 file=C:\xxx.dmp full=y log=C:\daochu.txt
+【完全模式】imp 数据库用户名/数据库用户密码@实例名 file=C:\xxx.dmp full=y log=C:\daoru.txt
+
+【用户模式】exp 数据库用户名/数据库用户密码@实例名 file=C:\xxx.dmp owner=nhis_lb log=C:\daochu.txt
+【用户模式】imp 数据库用户名/数据库用户密码@实例名 file=C:\xxx.dmp fromuser=nhis_lb touser=xxx log=C:\daoru.txt
+
+【表模式】  exp 数据库用户名/数据库用户密码@实例名 file=C:\xxx.dmp owner=nhis_lb tables=(xx) log=C:\daochu.txt
+【表模式】  imp 数据库用户名/数据库用户密码@实例名 file=C:\xxx.dmp owner=nhis_lb tables=(xx) log=C:\daoru.txt
+
+【注意】imp和exp配对使用，exp导出的dmp文件只能使用imp命令导入；
+	imp导入必须先确保表空间和源表空间一致，不然导入过程中会报错，一般情况下在老库上可以看到源表空间，但是如果现在
+	只有一个dmp文件，不知道里面的表空间是什么，怎么办呢。这里有一个简单的方法来获取相关的信息。就是在新库上随便找
+	一个管理员账户来执行imp命令导入dmp文件。但是由于OWNER不正确，会导致导入的表和数据会跳过，并不会真正的导入。
+	但是这样会生成log文件。从log文件中就可以查看出表空间等信息。例如：
+	imp userid=system/oracle file=C:\xxx.dmp full=y ignore=y show=y log=C:\daoru.txt
+【其他参数】：
+ignore=y
+full=y 
+fromuser=user1 touser=user2
+	
+
+例子：
+exp tianzhi_smart/tianzhi_smart@192.168.56.60:1521/orcl file=E:\tianzhi_smart.dmp log=C:\daochu.txt
+exp nhis_ts/nhis_ts@192.168.8.178:1521/orcl file=E:\nhis_ts_20190115.dmp log=C:\daochu.txt
+exp nhis_lb/nhis_lb@orcl file=C:\nhis_20180625.dmp owner=nhis_lb log=C:\daochu.txt
+imp nhis_lb/nhis_lb@orcl file=C:\nhis_lb.dmp full=y log=C:\daoru.txt
+imp nhis_lb/nhis_lb@orcl file=D:\nhis备份目录\NHIS中山环境备份\20180723\nhis20180723.dmp full=y log=C:\daoru.txt
+imp nhis_lb/nhis_lb@orcl file=C:\nhis.dmp fromuser=nhis_lb touser=nhis_lb log=C:\daoru.txt
+exp nhis_ts/nhis_ts@192.168.8.189:1521/orcl file=E:\nhis_ts_20190115.dmp log=C:\daochu.txt
+exp nhis/nhis@192.168.8.189:1521/orcl file=d:\nhis_20190218.dmp log=C:\daochu.txt
+
+6）expdp导出和impdp导入
+【 expdp导出】  expdp 数据库用户名/数据库用户密码@实例名 directory=nhis dumpfile=xx.dmp schemas=用户名 logfile=test_expdp_bak.log
+【  查询目录】  select * from dba_directories
+【  创建目录】  create or replace directory nhis as 'D:\database\bak' ;
+                     GRANT read,write ON DIRECTORY dump_dir TO public
+【查询表空间】  select * from dba_tablespaces
+【 impdp导入】  impdp 新用户名/新用户密码@实例名 directory=目录名字 dumpfile=dmp文件名 remap_tablespace=源表空间名:新表空间名 remap_schema=源用户名:新用户名 table_exists_action=replace
+
+备注：impdp导入时新用户名和新表空间可以不存在，导入语句会自行创建 
+
+【例子】
+expdp nhis/nhis@ZB directory=nhis dumpfile=xx.dmp logfile=test_expdp_bak.log schemas=nhis
+expdp nhis_gz/nhis_gz@orcl directory=nhis dumpfile=NHIS_226_20180912.dmp logfile=test_expdp_bak.log schemas=nhis_gz
+
+impdp nhis/nhis@ZB directory=nhis dumpfile=xx.dmp remap_tablespace=old_tablespace:new_tablespace remap_schema=old_user:new_user table_exists_action=replace 
+impdp nhis_gz/nhis_gz@orcl directory=DPDATA dumpfile=NHIS_223_20180707.DMP remap_tablespace=NHIS_DATA:nhis_gz_data remap_schema=nhis:nhis_gz table_exists_action=replace
+impdp nhis_lb/nhis_lb@ZB directory=xx dumpfile=xx.dmp remap_tablespace=nhis_data:nhis_data remap_schema=nhis_lb:nhis_lb table_exists_action=replace 
+
+12c导入
+impdp nhis_ts/nhis_ts@ORCL directory=nhis dumpfile=NHIS20190116025901.dmp remap_tablespace=nhis_data:nhis_ts_data remap_schema=nhis:nhis_ts table_exists_action=replace 
+
+7）导入数据库时发生错误数据不全怎么处理？
+  --> 删除数据库（先删除用户、用户所在表空间），再新建用户和表空间，再imp导入
+
+	/*第1步：在控制台以管理员权限登录建立连接:  */
+	sqlplus system/oracle@192.168.100.226:1521/orcl
+	sqlplus system/manage@192.168.8.213:1521/orcl
+              sqlplus /nolog
+	conn /as sysdba;
+
+	/*第2步：用sysdba用户查询表空间名称、磁盘路径文件  */
+	select username,default_tablespace from dba_users; (如用testuser登录，则查表user_users)
+	select file_name,tablespace_name from dba_data_files; 
+
+	/*第3步：删除用户（如果用户下面有对象，需要加cascade参数）  */
+
+	drop user nhis_ts cascade; 
+
+
+	/*第4步：删除表空间  */
+	--将其offline
+\
+	alter tablespace nhis_ts_data offline;
+
+
+	--将磁盘上的数据文件一同删除
+
+	drop tablespace nhis_ts_temp including contents and datafiles CASCADE CONSTRAINTS;  
+	drop tablespace nhis_ts_data including contents and datafiles CASCADE CONSTRAINTS;
+	/*第5步：创建表空间和用户  */
+	/*第6步：重新imp  */
+
+7）导入时出现问题和解决
+IMP-00041: 警告: 创建的对象带有编译警告
+
+
+
+select username,serial#, sid from v$session where terminal<>'ZHUAM-PC'; ; 
+
+select 'alter system kill session '''||serial#||','||sid||''';' from v$session where terminal<>'ZHUAM-PC'; ; 
+
+alter system kill session '	5914	,	1	';
+alter system kill session '	6085	,	4	';
+        
+
+
+
+
+

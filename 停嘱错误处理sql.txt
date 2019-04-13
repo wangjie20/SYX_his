@@ -1,0 +1,20 @@
+--查询患者就诊
+select * from PV_ENCOUNTER where NAME_PI = '许钧皓';
+
+
+--UPDATE  BL_IP_DT set DEL_FLAG = '0',MODIFIER = '错误停嘱数据' where PK_ORDEXDT in
+select * from BL_IP_DT where PK_ORDEXDT in
+--update EX_ORDER_OCC set EU_STATUS = '1' ,FLAG_CANC = '0'  ,DATE_CANC = NULL ,PK_EMP_CANC = NULL ,NAME_EMP_CANC = NULL where PK_EXOCC in
+      (
+        SELECT PK_EXOCC FROM EX_ORDER_OCC
+            WHERE PK_CNORD IN
+                  ( SELECT pk_cnord FROM CN_ORDER
+                  WHERE PK_PV  = 'bd6fa8570b484824ad5ea90399868a43'
+                        AND EU_ALWAYS = '0'
+                        AND FLAG_STOP_CHK  =  '1'
+                        AND to_char( DATE_START,  'yy-MM-dd HH24:mi')  = '19-03-29 14:27'
+                        AND to_char( DATE_STOP, 'yy-MM-dd HH24:mi') ='19-04-01 07:30')
+                  AND
+                  DATE_PLAN < to_date( '20190401', 'yyyyMMdd')
+      )
+and PK_CGIP_BACK is not NULL

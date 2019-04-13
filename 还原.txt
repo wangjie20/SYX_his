@@ -1,0 +1,57 @@
+rem 备份语句(XXXX处请改正)：
+expdp nhis_gz/nhis_gz@orcl directory=nhis dumpfile=NHISGZ201901230840.dmp logfile=nhisgz_expdp.log schemas=nhis_g
+
+rem 还原语句(XXXX处请改正)：
+impdp nhis_ts/nhis_ts@ORCL directory=nhis dumpfile=NHISGZ201901240840.DMP remap_tablespace=nhis_gz_data:nhis_ts_data remap_schema=nhis_gz:nhis_ts table_exists_action=replace
+
+impdp nhis_gz/nhis_gz@ORCL directory=nhis dumpfile=NHIS20190123100243.dmp remap_tablespace=nhis_data:nhis_gz_data remap_schema=nhis:nhis_gz table_exists_action=replace
+
+impdp nhis/nhis@ORCL directory=nhis dumpfile=NHIS20190123100243.dmp remap_tablespace=nhis_data:nhis_gz_data remap_schema=nhis:nhis_gz table_exists_action=replace
+
+
+正式备份语句：
+
+1、task
+mkdir /home/zebone/bak/20190410
+cp -Rf /home/zebone/Nhis-dubboxh/nhis/task/* /home/zebone/bak/20190410/
+cd /home/zebone/Nhis-dubboxh/bin/
+
+cp -Rf  /home/zebone/bak/20190329/* /home/zebone/Nhis-dubboxh/nhis/task/
+
+2、base
+mkdir /home/zebone/bak/20190410
+cp -Rf /home/zebone/Nhis-dubbo/nhis/base/* /home/zebone/bak/20190410/
+cd /home/zebone/Nhis-dubbo/bin/
+
+3、rc
+mkdir /home/zebone/bak/20190410
+cp -Rf /home/zebone/web/WebRoot/* /home/zebone/bak/20190410/
+cd /home/zebone/apache-tomcat-7.0.92/bin/
+
+
+
+测试备份语句：
+mkdir /home/zebone/dubbo/bak/bak_base/20190410
+cp -Rf /home/zebone/dubbo/Nhis-dubbo/nhis/base/* /home/zebone/dubbo/bak/bak_base/20190410
+mkdir /home/zebone/dubbo/bak/bak_web/20190410
+cp -Rf /home/zebone/dubbo/web/* /home/zebone/dubbo/bak/bak_web/20190410
+mkdir /home/zebone/dubbo/bak/bak_task/20190410
+cp -Rf /home/zebone/dubbo/Nhis-dubbo_task/nhis/task/* /home/zebone/dubbo/bak/bak_task/20190410
+cd /home/zebone/dubbo/Nhis-dubbo/bin/
+
+测试停服务：
+cd /home/zebone/dubbo/Nhis-dubbo/bin/
+./runBase.sh stop
+cd /home/zebone/dubbo/apache-tomcat-7.0.92/bin/
+./shutdown.sh 
+cd /home/zebone/dubbo/Nhis-dubbo_task/bin/
+./runTask.sh stop
+
+测试启动服务：
+cd /home/zebone/dubbo/Nhis-dubbo/bin/
+./runBase.sh start
+cd /home/zebone/dubbo/apache-tomcat-7.0.92/bin/
+./startup.sh 
+cd /home/zebone/dubbo/Nhis-dubbo_task/bin/
+./runTask.sh start
+

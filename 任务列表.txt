@@ -1,0 +1,66 @@
+select sum(ap) 药品请领, sum(ex) 医技申请, sum(occ) 执行单, sum(op) 手术, sum(ord) 医嘱
+	, NAME_PI 姓名,BED_NO 床号,PK_PV 就诊主键,CODE_IP 住院号,cnt.pk_dept 就诊科室 ,pk_dept_ns 就诊护理单元, dept.NAME_DEPT 护理单元
+from (
+  --药品请领未发放
+select count(1) as ap , null as op , null as ord , null as occ , null as ex
+	, pv.pk_pv , pv.bed_no , pv.name_pi  , pi.code_ip , pv.pk_dept , pv.pk_dept_ns 
+  from ex_pd_apply ap
+inner join ex_pd_apply_detail dt on ap.pk_pdap=dt.pk_pdap
+inner join pv_encounter pv on dt.pk_pv=pv.pk_pv
+inner join pi_master pi on pi.pk_pi = pv.pk_pi
+ where ap.flag_cancel='0' and dt.flag_finish='0' and dt.flag_self='0'
+   and pv.eu_pvtype = '3' and pv.flag_in = '1'
+	 and ap.date_ap < ?
+group by pv.pk_pv,pv.bed_no,pv.name_pi,pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+ union all
+--检查|检验
+select null as ap , null as op , null as ord , null as occ , count(1) as ex
+	, pv.pk_pv , pv.bed_no , pv.name_pi , pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+  from cn_order ord
+  left join cn_lab_apply lab on ord.pk_cnord=lab.pk_cnord
+  left join cn_ris_apply ris on ord.pk_cnord=ris.pk_cnord
+inner join pv_encounter pv on ord.pk_pv=pv.pk_pv
+inner join pi_master pi on pi.pk_pi = pv.pk_pi
+where ((ord.code_ordtype like '02%' and ris.eu_status<='1') or (ord.code_ordtype like '03%' and lab.eu_status<='1'))
+  and ord.flag_erase='0' and pv.eu_pvtype = '3' and pv.flag_in = '1'
+	and ord.date_enter <= ?
+group by pv.pk_pv , pv.bed_no , pv.name_pi, pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+ union all
+--未完成手术
+select null as ap , count(1) as op , null as ord , null as occ , null as ex
+	, pv.pk_pv , pv.bed_no , pv.name_pi , pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+  from cn_order ord
+ inner join cn_op_apply op on ord.pk_cnord=op.pk_cnord
+ inner join pv_encounter pv on ord.pk_pv=pv.pk_pv
+ inner join pi_master pi on pi.pk_pi = pv.pk_pi
+ where op.eu_status<'5' and ord.flag_erase='0'
+   and pv.eu_pvtype = '3' and pv.flag_in = '1'
+	 and ord.date_enter < ?
+group by pv.pk_pv , pv.bed_no , pv.name_pi, pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+   union all
+--未核对的医嘱
+select null as ap , null as op , count(1) as ord , null as occ , null as ex
+  , pv.pk_pv , pv.bed_no , pv.name_pi , pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+  from cn_order ord
+ inner join pv_encounter pv on ord.pk_pv=pv.pk_pv
+ inner join pi_master pi on pi.pk_pi = pv.PK_PI
+ where (ord.eu_status_ord<'2'or (ord.FLAG_STOP = '1' and ord.FLAG_STOP_CHK <> '1')) and ord.flag_erase='0'
+   and pv.eu_pvtype = '3' and pv.flag_in = '1'
+	 and ord.date_enter < ?
+group by pv.pk_pv , pv.bed_no , pv.name_pi, pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+    union all
+--未完成执行单
+select null as ap , null as op , null as ord , count(1) as occ , null as ex
+	, pv.pk_pv , pv.bed_no , pv.name_pi , pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+  from ex_order_occ occ
+ inner join cn_order ord on ord.pk_cnord = occ.pk_cnord
+ inner join pv_encounter pv on ord.pk_pv=pv.pk_pv
+ inner join pi_master pi on pi.pk_pi = pv.PK_PI
+ where occ.eu_status = '0' and ord.eu_status_ord < '9'
+   and pv.eu_pvtype = '3' and pv.flag_in = '1'
+   and (occ.pk_dept_occ = pv.pk_dept_ns or ord.flag_durg = '1')
+	 and occ.date_plan < ?
+group by pv.pk_pv , pv.bed_no , pv.name_pi, pi.code_ip, pv.pk_dept , pv.pk_dept_ns
+) cnt
+	inner join bd_ou_dept dept on dept.PK_DEPT = cnt.PK_DEPT_NS
+GROUP BY NAME_PI,BED_NO,PK_PV,CODE_IP,cnt.pk_dept ,pk_dept_ns, dept.NAME_DEPT;

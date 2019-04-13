@@ -1,0 +1,55 @@
+--【nhis 库】检验医嘱查询是否并单成功
+select
+  pi.CODE_IP,--住院号
+  pv.BED_NO,--患者床号
+  pv.NAME_PI,--患者名称
+  ord.ORDSN,--医嘱序号
+  to_char(ord.DATE_START,'YYYY-MM-DD HH24:MI') date_start, --医嘱开始时间
+  ord.CODE_APPLY,--申请单号
+  lis.FORM_APP,--并单的单号
+  dept.NAME_DEPT,--执行科室
+  sam.NAME, --标本名称、
+  tub.NAME, --容器名称、
+  lis.DT_TUBETYPE,--容器编码、
+  lis.DT_SAMPTYPE,--标本编码、
+  ord.NAME_ORD,--医嘱名称
+  ord.EU_STATUS_ORD ord_sta, --医嘱状态【0 开立、1 签署、2 核对、3 执行、4 停止、9 作废】
+  occ.EU_STATUS ex_sta, -- 执行单状态 【0 未执行、1 已执行、9 取消执行】
+  lis.EU_STATUS lis_sta,--申请单状态【0】
+  lis.NAME_EMP_COL, --采集人
+  lis.DATE_COL --采集时间
+  from CN_ORDER ord
+  inner join PV_ENCOUNTER pv on pv.PK_PV = ord.PK_PV
+  inner join PI_MASTER pi on pi.PK_PI = pv.PK_PI
+  inner join CN_LAB_APPLY lis on lis.PK_CNORD = ord.PK_CNORD
+  inner join EX_ORDER_OCC occ on occ.PK_CNORD = ord.PK_CNORD
+  inner join BD_OU_DEPT dept on dept.PK_DEPT = ord.PK_DEPT_EXEC
+    left join BD_DEFDOC sam on sam.CODE_DEFDOCLIST = '030200' and sam.code = lis.DT_SAMPTYPE
+    left join BD_DEFDOC tub on tub.CODE_DEFDOCLIST = '030203' and tub.code = lis.DT_TUBETYPE
+where 1=1
+      --and ord.ORDSN = '5054' -- 医嘱序号
+      and pv.FLAG_IN = '1' --在院患者
+      and ord.EU_STATUS_ORD < 9 -- 有效医嘱
+      and ord.DATE_ENTER <= to_date('20190223000000','YYYYMMDDHH24MISS') -- 录入时间
+      --and ord.CODE_ORDTYPE like '03%' -- 检验医嘱
+order by pv.BED_NO,ord.FLAG_EMER,ord.DATE_START,lis.DT_SAMPTYPE,ord.PK_DEPT_EXEC,lis.DT_TUBETYPE;
+
+
+--【中间库】查询发送至三方的申请信息
+select  a.Flag,--申请单状态【0 未处理，1 已打印，2 出报告】
+	a.ExamineRequestForIPID, -- 申请单主键
+	a.LisLableNo,--检验条码号
+	a.ExamineRequestID, -- NHIS 系统申请单号
+	a.ExamineDepartmentName, -- 申请科室名称
+	b.ExamineItemSetListForIPID, -- 申请单明细主键
+	b.ItemSetDesc, --申请单明细描述
+	a.*
+from tExamineRequestForIP  a
+	inner join tExamineItemSetListForIP b on a.ExamineRequestID=b.ExamineRequestID
+where 1=1
+			and PatientName='林玉云' --患者姓名
+	    --and PatientID ='' --患者编码
+	    --and a.LisLableNo in ('190397649','190397650') -- 检验条码号
+	    --and a.ExamineRequestID in ('1902000339','1902000055') -- NHIS【申请单号】
+			and insertdatetime > '2019-02-21' -- 查询时间
+order by a.ExamineRequestID;
